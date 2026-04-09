@@ -3,7 +3,6 @@ import {
     View,
     Image,
     NativeModules,
-    requireNativeComponent,
     StyleSheet,
     FlexStyle,
     LayoutChangeEvent,
@@ -16,6 +15,22 @@ import {
     ViewProps,
     ColorValue,
 } from 'react-native'
+
+import FastImageViewNativeComponent from './FastImageViewNativeComponent'
+
+// TurboModule: try the new TurboModuleRegistry first, fall back to NativeModules
+let FastImageViewModule: {
+    preload(sources: Array<object>): void
+    clearMemoryCache(): Promise<void>
+    clearDiskCache(): Promise<void>
+}
+
+try {
+    FastImageViewModule =
+        require('./NativeFastImageModule').default ?? NativeModules.FastImageView
+} catch {
+    FastImageViewModule = NativeModules.FastImageView
+}
 
 export type ResizeMode = 'contain' | 'cover' | 'stretch' | 'center'
 
@@ -138,9 +153,9 @@ export interface FastImageProps extends AccessibilityProps, ViewProps {
 
 const resolveDefaultSource = (
     defaultSource?: ImageRequireSource,
-): string | number | null => {
+): string | number | undefined => {
     if (!defaultSource) {
-        return null
+        return undefined
     }
     if (Platform.OS === 'android') {
         // Android receives a URI string, and resolves into a Drawable using RN's methods.
@@ -152,7 +167,7 @@ const resolveDefaultSource = (
             return resolved.uri
         }
 
-        return null
+        return undefined
     }
     // iOS or other number mapped assets
     // In iOS the number is passed, and bridged automatically into a UIImage
@@ -206,7 +221,7 @@ function FastImageBase({
 
     return (
         <View style={[styles.imageContainer, style]} ref={forwardedRef}>
-            <FastImageView
+            <FastImageViewNativeComponent
                 {...props}
                 tintColor={tintColor}
                 style={StyleSheet.absoluteFill}
@@ -254,32 +269,16 @@ FastImage.cacheControl = cacheControl
 FastImage.priority = priority
 
 FastImage.preload = (sources: Source[]) =>
-    NativeModules.FastImageView.preload(sources)
+    FastImageViewModule.preload(sources)
 
-FastImage.clearMemoryCache = () =>
-    NativeModules.FastImageView.clearMemoryCache()
+FastImage.clearMemoryCache = () => FastImageViewModule.clearMemoryCache()
 
-FastImage.clearDiskCache = () => NativeModules.FastImageView.clearDiskCache()
+FastImage.clearDiskCache = () => FastImageViewModule.clearDiskCache()
 
 const styles = StyleSheet.create({
     imageContainer: {
         overflow: 'hidden',
     },
 })
-
-// Types of requireNativeComponent are not correct.
-const FastImageView = (requireNativeComponent as any)(
-    'FastImageView',
-    FastImage,
-    {
-        nativeOnly: {
-            onFastImageLoadStart: true,
-            onFastImageProgress: true,
-            onFastImageLoad: true,
-            onFastImageError: true,
-            onFastImageLoadEnd: true,
-        },
-    },
-)
 
 export default FastImage

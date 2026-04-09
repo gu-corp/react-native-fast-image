@@ -14,14 +14,15 @@ import androidx.annotation.NonNull;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestManager;
+import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
-import com.facebook.react.bridge.WritableNativeMap;
 import com.facebook.react.common.MapBuilder;
 import com.facebook.react.uimanager.SimpleViewManager;
 import com.facebook.react.uimanager.ThemedReactContext;
+import com.facebook.react.uimanager.UIManagerHelper;
 import com.facebook.react.uimanager.annotations.ReactProp;
-import com.facebook.react.uimanager.events.RCTEventEmitter;
+import com.facebook.react.uimanager.events.EventDispatcher;
 import com.facebook.react.views.imagehelper.ResourceDrawableIdHelper;
 
 import java.util.List;
@@ -117,13 +118,15 @@ class FastImageViewManager extends SimpleViewManager<FastImageViewWithUrl> imple
         List<FastImageViewWithUrl> viewsForKey = VIEWS_FOR_URLS.get(key);
         if (viewsForKey != null) {
             for (FastImageViewWithUrl view : viewsForKey) {
-                WritableMap event = new WritableNativeMap();
+                WritableMap event = Arguments.createMap();
                 event.putInt("loaded", (int) bytesRead);
                 event.putInt("total", (int) expectedLength);
-                ThemedReactContext context = (ThemedReactContext) view.getContext();
-                RCTEventEmitter eventEmitter = context.getJSModule(RCTEventEmitter.class);
-                int viewId = view.getId();
-                eventEmitter.receiveEvent(viewId, REACT_ON_PROGRESS_EVENT, event);
+                EventDispatcher dispatcher = UIManagerHelper.getEventDispatcherForReactTag(
+                        UIManagerHelper.getReactContext(view), view.getId());
+                if (dispatcher != null) {
+                    int surfaceId = UIManagerHelper.getSurfaceId(view);
+                    dispatcher.dispatchEvent(new FastImageViewEvent(surfaceId, view.getId(), REACT_ON_PROGRESS_EVENT, event));
+                }
             }
         }
     }
@@ -167,12 +170,7 @@ class FastImageViewManager extends SimpleViewManager<FastImageViewWithUrl> imple
     }
 
     private static boolean isActivityDestroyed(Activity activity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-            return activity.isDestroyed() || activity.isFinishing();
-        } else {
-            return activity.isFinishing() || activity.isChangingConfigurations();
-        }
-
+        return activity.isDestroyed() || activity.isFinishing();
     }
 
     @Override

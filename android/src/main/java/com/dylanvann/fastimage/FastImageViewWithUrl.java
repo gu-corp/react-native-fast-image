@@ -13,11 +13,12 @@ import com.bumptech.glide.RequestBuilder;
 import com.bumptech.glide.RequestManager;
 import com.bumptech.glide.load.model.GlideUrl;
 import com.bumptech.glide.request.Request;
+import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
-import com.facebook.react.bridge.WritableNativeMap;
 import com.facebook.react.uimanager.ThemedReactContext;
-import com.facebook.react.uimanager.events.RCTEventEmitter;
+import com.facebook.react.uimanager.UIManagerHelper;
+import com.facebook.react.uimanager.events.EventDispatcher;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -51,6 +52,19 @@ class FastImageViewWithUrl extends AppCompatImageView {
         return url == null || url.trim().isEmpty();
     }
 
+    private void dispatchEvent(String eventName) {
+        dispatchEvent(eventName, null);
+    }
+
+    private void dispatchEvent(String eventName, @Nullable WritableMap payload) {
+        EventDispatcher dispatcher = UIManagerHelper.getEventDispatcherForReactTag(
+                UIManagerHelper.getReactContext(this), getId());
+        if (dispatcher != null) {
+            int surfaceId = UIManagerHelper.getSurfaceId(this);
+            dispatcher.dispatchEvent(new FastImageViewEvent(surfaceId, getId(), eventName, payload));
+        }
+    }
+
     @SuppressLint("CheckResult")
     public void onAfterUpdate(
             @Nonnull FastImageViewManager manager,
@@ -76,16 +90,12 @@ class FastImageViewWithUrl extends AppCompatImageView {
             return;
         }
 
-        //final GlideUrl glideUrl = FastImageViewConverter.getGlideUrl(view.getContext(), mSource);
         final FastImageSource imageSource = FastImageViewConverter.getImageSource(getContext(), mSource);
 
         if (imageSource != null && imageSource.getUri().toString().length() == 0) {
-            ThemedReactContext context = (ThemedReactContext) getContext();
-            RCTEventEmitter eventEmitter = context.getJSModule(RCTEventEmitter.class);
-            int viewId = getId();
-            WritableMap event = new WritableNativeMap();
+            WritableMap event = Arguments.createMap();
             event.putString("message", "Invalid source prop:" + mSource);
-            eventEmitter.receiveEvent(viewId, REACT_ON_ERROR_EVENT, event);
+            dispatchEvent(REACT_ON_ERROR_EVENT, event);
 
             // Cancel existing requests.
             clearView(requestManager);
@@ -118,15 +128,8 @@ class FastImageViewWithUrl extends AppCompatImageView {
             }
         }
 
-        ThemedReactContext context = (ThemedReactContext) getContext();
         if (imageSource != null) {
-            // This is an orphan even without a load/loadend when only loading a placeholder
-            RCTEventEmitter eventEmitter = context.getJSModule(RCTEventEmitter.class);
-            int viewId = this.getId();
-
-            eventEmitter.receiveEvent(viewId,
-                    FastImageViewManager.REACT_ON_LOAD_START_EVENT,
-                    new WritableNativeMap());
+            dispatchEvent(FastImageViewManager.REACT_ON_LOAD_START_EVENT);
         }
 
         if (requestManager != null) {
@@ -140,7 +143,7 @@ class FastImageViewWithUrl extends AppCompatImageView {
                             //    - data:image/png;base64
                             .load(imageSource == null ? null : imageSource.getSourceForLoad())
                             .apply(FastImageViewConverter
-                                    .getOptions(context, imageSource, mSource)
+                                    .getOptions(getContext(), imageSource, mSource)
                                     .placeholder(mDefaultSource) // show until loaded
                                     .fallback(mDefaultSource)); // null will not be treated as error
 

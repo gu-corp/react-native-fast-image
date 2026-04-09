@@ -5,14 +5,12 @@ import android.app.Activity;
 import androidx.annotation.NonNull;
 
 import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.model.GlideUrl;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
-import com.facebook.react.views.imagehelper.ImageSource;
 
 class FastImageViewModule extends ReactContextBaseJavaModule {
 
@@ -41,12 +39,6 @@ class FastImageViewModule extends ReactContextBaseJavaModule {
 
                     Glide
                             .with(activity.getApplicationContext())
-                            // This will make this work for remote and local images. e.g.
-                            //    - file:///
-                            //    - content://
-                            //    - res:/
-                            //    - android.resource://
-                            //    - data:image/png;base64
                             .load(
                                     imageSource.isBase64Resource() ? imageSource.getSource() :
                                     imageSource.isResource() ? imageSource.getUri() : imageSource.getGlideUrl()
